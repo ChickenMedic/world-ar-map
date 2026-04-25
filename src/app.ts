@@ -527,7 +527,7 @@ function buildMap(scene: any) {
       targetResetRotationX = -1.4 // Smoothly animate map pitch back
       globeGroup.rotation.set(0, -Math.PI / 2, -23.5 * (Math.PI / 180)) // Reset tilt
     } else {
-      mapGroup.rotation.x = -Math.PI / 6 // Tilt backward so we look down on the flat solar system plane!
+      mapGroup.rotation.x = 0 // Keep the solar system plane parallel to the physical floor!
       targetResetRotationX = null
     }
   })
@@ -1083,10 +1083,9 @@ ecs.registerBehavior((w: any) => {
   let surfaceFound = false
   
   // AR Surface Reticle
-  const reticleGeom = new T.RingGeometry(0.4, 0.5, 32)
+  const reticleGeom = new T.RingGeometry(0.4, 0.5, 32).rotateX(-Math.PI / 2) // Pre-rotate so "up" is Y, naturally laying flat
   const reticleMat = new T.MeshBasicMaterial({ color: 0xffffff, side: T.DoubleSide, transparent: true, opacity: 0.8 })
   const reticle = new T.Mesh(reticleGeom, reticleMat)
-  reticle.rotation.x = -Math.PI / 2
   w.three.scene.add(reticle)
   
   // Center line pointing up from reticle
@@ -1121,8 +1120,12 @@ ecs.registerBehavior((w: any) => {
         const hitRes = (window as any).XR8.XrController.hitTest(0.5, 0.5, types)
         if (hitRes && hitRes.length > 0) {
           const hit = hitRes[0]
-          reticle.position.set(hit.position.x, hit.position.y, hit.position.z)
-          reticle.quaternion.set(hit.rotation.x, hit.rotation.y, hit.rotation.z, hit.rotation.w)
+          const targetPos = new T.Vector3(hit.position.x, hit.position.y, hit.position.z)
+          const targetQuat = new T.Quaternion(hit.rotation.x, hit.rotation.y, hit.rotation.z, hit.rotation.w)
+          
+          // Smoothly interpolate towards the physical hit test
+          reticle.position.lerp(targetPos, 0.2)
+          reticle.quaternion.slerp(targetQuat, 0.2)
           hitSuccess = true
         }
       } catch (e) {}
@@ -1130,13 +1133,13 @@ ecs.registerBehavior((w: any) => {
 
     if (!hitSuccess) {
       // Fallback: Stick it 1.5m in front of the camera, 1m down
-      const dir = new T.Vector3(0, 0, -1)
-      dir.applyQuaternion(cam.quaternion)
-      reticle.position.copy(cam.position).add(dir.multiplyScalar(1.5))
-      reticle.position.y -= 1.0 // Estimate floor is 1m below phone
-      reticle.rotation.x = -Math.PI / 2 // Flat on floor
-      reticle.rotation.y = 0
-      reticle.rotation.z = 0
+      const dir = new T.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
+      const targetPos = cam.position.clone().add(dir.multiplyScalar(1.5))
+      targetPos.y -= 1.0 // Estimate floor is 1m below phone
+      const targetQuat = new T.Quaternion().setFromEuler(new T.Euler(0, 0, 0)) // Flat identity
+      
+      reticle.position.lerp(targetPos, 0.2)
+      reticle.quaternion.slerp(targetQuat, 0.2)
     }
 
     // Always keep reticle visible during placement!

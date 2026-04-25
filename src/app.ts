@@ -1067,6 +1067,22 @@ ecs.registerBehavior((w: any) => {
   heightSlider.value = '1.0'
   heightSlider.style.width = '200px'
   
+  const scaleSlider = document.createElement('input')
+  scaleSlider.type = 'range'
+  scaleSlider.min = '0.2'
+  scaleSlider.max = '3.0'
+  scaleSlider.step = '0.1'
+  scaleSlider.value = '1.0'
+  scaleSlider.style.width = '200px'
+
+  const heightWrapper = document.createElement('div')
+  heightWrapper.innerHTML = '<span style="color:#aaa; font-size:12px; display:block; text-align:center;">Height Offset</span>'
+  heightWrapper.appendChild(heightSlider)
+
+  const scaleWrapper = document.createElement('div')
+  scaleWrapper.innerHTML = '<span style="color:#aaa; font-size:12px; display:block; text-align:center;">Globe Scale</span>'
+  scaleWrapper.appendChild(scaleSlider)
+  
   const placeBtn = document.createElement('button')
   placeBtn.innerText = '✅ PLACE GLOBE'
   Object.assign(placeBtn.style, {
@@ -1075,15 +1091,19 @@ ecs.registerBehavior((w: any) => {
   })
 
   placementUI.appendChild(instructionTxt)
-  placementUI.appendChild(heightSlider)
+  placementUI.appendChild(heightWrapper)
+  placementUI.appendChild(scaleWrapper)
   placementUI.appendChild(placeBtn)
+  
+  // Hide UI initially while AR camera loads
+  placementUI.style.display = 'none'
   document.body.appendChild(placementUI)
 
   let isPlaced = false
   let surfaceFound = false
   
   // AR Surface Reticle
-  const reticleGeom = new T.RingGeometry(0.4, 0.5, 32).rotateX(-Math.PI / 2) // Pre-rotate so "up" is Y, naturally laying flat
+  const reticleGeom = new T.RingGeometry(0.4, 0.5, 32)
   const reticleMat = new T.MeshBasicMaterial({ color: 0xffffff, side: T.DoubleSide, transparent: true, opacity: 0.8 })
   const reticle = new T.Mesh(reticleGeom, reticleMat)
   w.three.scene.add(reticle)
@@ -1121,11 +1141,10 @@ ecs.registerBehavior((w: any) => {
         if (hitRes && hitRes.length > 0) {
           const hit = hitRes[0]
           const targetPos = new T.Vector3(hit.position.x, hit.position.y, hit.position.z)
-          const targetQuat = new T.Quaternion(hit.rotation.x, hit.rotation.y, hit.rotation.z, hit.rotation.w)
           
           // Smoothly interpolate towards the physical hit test
-          reticle.position.lerp(targetPos, 0.2)
-          reticle.quaternion.slerp(targetQuat, 0.2)
+          reticle.position.lerp(targetPos, 0.1)
+          reticle.rotation.set(-Math.PI / 2, 0, 0) // FORCE FLAT
           hitSuccess = true
         }
       } catch (e) {}
@@ -1136,18 +1155,29 @@ ecs.registerBehavior((w: any) => {
       const dir = new T.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
       const targetPos = cam.position.clone().add(dir.multiplyScalar(1.5))
       targetPos.y -= 1.0 // Estimate floor is 1m below phone
-      const targetQuat = new T.Quaternion().setFromEuler(new T.Euler(0, 0, 0)) // Flat identity
       
-      reticle.position.lerp(targetPos, 0.2)
-      reticle.quaternion.slerp(targetQuat, 0.2)
+      reticle.position.lerp(targetPos, 0.1)
+      reticle.rotation.set(-Math.PI / 2, 0, 0)
     }
 
     // Always keep reticle visible during placement!
     reticle.visible = true
 
+    // Show the placement UI now that AR is definitely ticking
+    if (!isDesktop && placementUI.style.display === 'none') {
+       placementUI.style.display = 'flex'
+       const loader = document.getElementById('camera-loading-ui')
+       if (loader) loader.style.display = 'none'
+    }
+
     // Always place the map directly above the reticle based on the height slider
     const heightOffset = parseFloat(heightSlider.value)
     mapGroup.position.copy(reticle.position)
+    mapGroup.position.y += heightOffset
+    
+    // Scale globe based on slider
+    const scaleMult = parseFloat(scaleSlider.value)
+    mapGroup.scale.set(0.2 * scaleMult, 0.2 * scaleMult, 0.2 * scaleMult)
     mapGroup.position.y += heightOffset
     
     requestAnimationFrame(updatePlacement)

@@ -25,28 +25,28 @@ let T: any = null
 
 // Solar System Data
 const planetsData: any[] = [
-  { name: 'Mercury', color: 0xaaaaaa, radius: 0.38, speed: 0.04, instrDist: 15, size: '4,879 km', distEarth: '91 million km', day: '1408 hours (58.7 x Earth)', year: '88 days (0.24 x Earth)', temp: '167°C' },
-  { name: 'Venus', color: 0xffdd99, radius: 0.95, speed: 0.015, instrDist: 22, size: '12,104 km', distEarth: '41 million km', day: '5832 hours (243 x Earth)', year: '225 days (0.62 x Earth)', temp: '464°C' },
-  { name: 'Mars', color: 0xff4400, radius: 0.53, speed: 0.008, instrDist: 38, size: '6,779 km', distEarth: '78 million km', day: '24.6 hours (1.03 x Earth)', year: '687 days (1.88 x Earth)', temp: '-65°C', moons: [
+  { name: 'Mercury', color: 0xaaaaaa, radius: 0.38, speed: 0.04, instrDist: 25, size: '4,879 km', distEarth: '91 million km', day: '1408 hours (58.7 x Earth)', year: '88 days (0.24 x Earth)', temp: '167°C' },
+  { name: 'Venus', color: 0xffdd99, radius: 0.95, speed: 0.015, instrDist: 38, size: '12,104 km', distEarth: '41 million km', day: '5832 hours (243 x Earth)', year: '225 days (0.62 x Earth)', temp: '464°C' },
+  { name: 'Mars', color: 0xff4400, radius: 0.53, speed: 0.008, instrDist: 65, size: '6,779 km', distEarth: '78 million km', day: '24.6 hours (1.03 x Earth)', year: '687 days (1.88 x Earth)', temp: '-65°C', moons: [
     {name: 'Phobos', radius: 0.05, dist: 0.8, speed: 0.05}, 
     {name: 'Deimos', radius: 0.04, dist: 1.2, speed: 0.03}
   ]},
-  { name: 'Jupiter', color: 0xd2b48c, radius: 4.0, speed: 0.002, instrDist: 55, size: '139,820 km', distEarth: '628 million km', day: '9.9 hours (0.41 x Earth)', year: '12 years (12 x Earth)', temp: '-110°C', moons: [
+  { name: 'Jupiter', color: 0xd2b48c, radius: 4.0, speed: 0.002, instrDist: 90, size: '139,820 km', distEarth: '628 million km', day: '9.9 hours (0.41 x Earth)', year: '12 years (12 x Earth)', temp: '-110°C', moons: [
     {name: 'Io', radius: 0.1, dist: 4.5, speed: 0.04}, 
     {name: 'Europa', radius: 0.09, dist: 5.5, speed: 0.03}, 
     {name: 'Ganymede', radius: 0.12, dist: 6.5, speed: 0.02}, 
     {name: 'Callisto', radius: 0.11, dist: 7.5, speed: 0.01}
   ]},
-  { name: 'Saturn', color: 0xf5deb3, radius: 3.5, speed: 0.0009, instrDist: 75, hasRings: true, size: '116,460 km', distEarth: '1.2 billion km', day: '10.7 hours (0.45 x Earth)', year: '29 years (29 x Earth)', temp: '-140°C', moons: [
+  { name: 'Saturn', color: 0xf5deb3, radius: 3.5, speed: 0.0009, instrDist: 120, hasRings: true, size: '116,460 km', distEarth: '1.2 billion km', day: '10.7 hours (0.45 x Earth)', year: '29 years (29 x Earth)', temp: '-140°C', moons: [
     {name: 'Titan', radius: 0.15, dist: 5.5, speed: 0.02}
   ]},
-  { name: 'Uranus', color: 0xadd8e6, radius: 2.0, speed: 0.0004, instrDist: 95, size: '50,724 km', distEarth: '2.7 billion km', day: '17.2 hours (0.72 x Earth)', year: '84 years (84 x Earth)', temp: '-195°C', moons: [
+  { name: 'Uranus', color: 0xadd8e6, radius: 2.0, speed: 0.0004, instrDist: 155, size: '50,724 km', distEarth: '2.7 billion km', day: '17.2 hours (0.72 x Earth)', year: '84 years (84 x Earth)', temp: '-195°C', moons: [
     {name: 'Titania', radius: 0.08, dist: 3.0, speed: 0.02}
   ]},
-  { name: 'Neptune', color: 0x00008b, radius: 1.9, speed: 0.0001, instrDist: 110, size: '49,244 km', distEarth: '4.3 billion km', day: '16.1 hours (0.67 x Earth)', year: '165 years (165 x Earth)', temp: '-200°C', moons: [
+  { name: 'Neptune', color: 0x00008b, radius: 1.9, speed: 0.0001, instrDist: 185, size: '49,244 km', distEarth: '4.3 billion km', day: '16.1 hours (0.67 x Earth)', year: '165 years (165 x Earth)', temp: '-200°C', moons: [
     {name: 'Triton', radius: 0.08, dist: 3.0, speed: 0.02}
   ]},
-  { name: 'Pluto', color: 0xdddddd, radius: 0.18, speed: 0.00005, instrDist: 125, size: '2,376 km', distEarth: '5.0 billion km', day: '153.3 hours (6.4 x Earth)', year: '248 years (248 x Earth)', temp: '-225°C', moons: [
+  { name: 'Pluto', color: 0xdddddd, radius: 0.18, speed: 0.00005, instrDist: 215, size: '2,376 km', distEarth: '5.0 billion km', day: '153.3 hours (6.4 x Earth)', year: '248 years (248 x Earth)', temp: '-225°C', moons: [
     {name: 'Charon', radius: 0.09, dist: 0.4, speed: 0.05}
   ]}
 ]
@@ -58,6 +58,7 @@ let selectedPlanet: any = null
 let isSolarSystem = false
 let capitalMarker: any = null
 let kuiperGroup: any = null
+let orbitsGroup: any = null
 let isPolitical = true
 let selectedCountryMesh: any = null
 let isBallOn = false
@@ -229,6 +230,9 @@ function buildMap(scene: any) {
       solarSystemGroup.add(earthLabel)
     }
 
+    orbitsGroup = new T.Group()
+    solarSystemGroup.add(orbitsGroup)
+
     planetsData.forEach(p => {
       p.pivot = new T.Group()
       solarSystemGroup.add(p.pivot)
@@ -247,6 +251,13 @@ function buildMap(scene: any) {
         lbl.position.set(0, p.radius + 1.5, 0)
         p.mesh.add(lbl)
       }
+
+      // Create glowing orbit track line
+      const orbitGeom = new T.RingGeometry(p.instrDist - 0.3, p.instrDist + 0.3, 128)
+      const orbitMat = new T.MeshBasicMaterial({ color: p.color, side: T.DoubleSide, transparent: true, opacity: 0.25 })
+      const orbitMesh = new T.Mesh(orbitGeom, orbitMat)
+      orbitMesh.rotation.x = Math.PI / 2
+      orbitsGroup.add(orbitMesh)
 
       if (p.hasRings) {
         const ring = new T.Mesh(
@@ -867,6 +878,10 @@ ecs.registerBehavior((w: any) => {
           sunMesh.position.set(sunX, 0, 0)
           sunMesh.rotation.y += 0.005
         }
+        
+        if (orbitsGroup) {
+          orbitsGroup.position.set(sunX, 0, 0)
+        }
 
         // Earth is static at 0,0,0
         globeGroup.position.set(0, 0, 0)
@@ -1014,9 +1029,11 @@ ecs.registerBehavior((w: any) => {
       const targetToSpin = (isSolarSystem && selectedPlanet && selectedPlanet !== globeGroup) ? selectedPlanet : globeGroup
       targetToSpin.rotateY(dx * 0.005)
       
-      // Pitch the entire map group up/down
-      const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-      mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+      if (!isSolarSystem) {
+        // Pitch the entire map group up/down
+        const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
+        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+      }
     } else if (isPanning) {
       // Right Click translates the globe
       const right = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
@@ -1283,8 +1300,10 @@ ecs.registerBehavior((w: any) => {
       const targetToSpin = (isSolarSystem && selectedPlanet && selectedPlanet !== globeGroup) ? selectedPlanet : globeGroup
       targetToSpin.rotateY(dx * 0.005)
       
-      const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-      mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+      if (!isSolarSystem) {
+        const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
+        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+      }
 
       lastTouchX = e.touches[0].clientX
       lastTouchY = e.touches[0].clientY

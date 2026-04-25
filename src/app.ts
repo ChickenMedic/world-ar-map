@@ -1061,10 +1061,10 @@ ecs.registerBehavior((w: any) => {
   
   const heightSlider = document.createElement('input')
   heightSlider.type = 'range'
-  heightSlider.min = '-2'
+  heightSlider.min = '0'
   heightSlider.max = '2'
   heightSlider.step = '0.1'
-  heightSlider.value = '-0.2'
+  heightSlider.value = '1.0'
   heightSlider.style.width = '200px'
   
   const placeBtn = document.createElement('button')
@@ -1080,14 +1080,57 @@ ecs.registerBehavior((w: any) => {
   document.body.appendChild(placementUI)
 
   let isPlaced = false
+  let surfaceFound = false
   
-  // Animation loop to keep mapGroup 1.5m in front of camera
+  // AR Surface Reticle
+  const reticleGeom = new T.RingGeometry(0.4, 0.5, 32)
+  const reticleMat = new T.MeshBasicMaterial({ color: 0xffffff, side: T.DoubleSide, transparent: true, opacity: 0.8 })
+  const reticle = new T.Mesh(reticleGeom, reticleMat)
+  reticle.rotation.x = -Math.PI / 2
+  w.three.scene.add(reticle)
+  
+  // Center line pointing up from reticle
+  const lineGeom = new T.BufferGeometry().setFromPoints([new T.Vector3(0, 0, 0), new T.Vector3(0, 2.0, 0)])
+  const lineMat = new T.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 })
+  const reticleLine = new T.Line(lineGeom, lineMat)
+  reticle.add(reticleLine)
+
+  // Animation loop to perform hit test and place reticle + mapGroup
   const updatePlacement = () => {
-    if (isPlaced) return
-    const dir = new T.Vector3(0, 0, -1)
-    dir.applyQuaternion(cam.quaternion)
-    mapGroup.position.copy(cam.position).add(dir.multiplyScalar(1.5))
-    mapGroup.position.y += parseFloat(heightSlider.value) // Apply slider height
+    if (isPlaced) {
+      reticle.visible = false
+      return
+    }
+    
+    // Attempt 8th Wall Hit Test at center of screen (0.5, 0.5)
+    if ((window as any).XR8 && (window as any).XR8.XrController) {
+      const hitRes = (window as any).XR8.XrController.hitTest(0.5, 0.5, ['FEATURE_POINT', 'ESTIMATED_SURFACE'])
+      if (hitRes && hitRes.length > 0) {
+        const hit = hitRes[0]
+        reticle.position.set(hit.position.x, hit.position.y, hit.position.z)
+        reticle.quaternion.set(hit.rotation.x, hit.rotation.y, hit.rotation.z, hit.rotation.w)
+        surfaceFound = true
+      } else {
+        surfaceFound = false
+      }
+    } else {
+      // Fallback if testing locally outside AR
+      const dir = new T.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
+      reticle.position.copy(cam.position).add(dir.multiplyScalar(1.5))
+      reticle.position.y -= 1.0
+      reticle.rotation.x = -Math.PI / 2
+      surfaceFound = true
+    }
+
+    reticle.visible = surfaceFound
+
+    if (surfaceFound) {
+      // Place the map directly above the reticle based on the height slider
+      const heightOffset = parseFloat(heightSlider.value)
+      mapGroup.position.copy(reticle.position)
+      mapGroup.position.y += heightOffset
+    }
+    
     requestAnimationFrame(updatePlacement)
   }
   updatePlacement()

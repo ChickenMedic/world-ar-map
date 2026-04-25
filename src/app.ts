@@ -1455,6 +1455,7 @@ ecs.registerBehavior((w: any) => {
   // ── TOUCH CONTROLS ──
   let touchStartDist = 0
   let touchStartScale = 1
+  let touchStartPlanetScale = 1
   let lastTouchX = 0
   let lastTouchY = 0
   let touchDownX = 0
@@ -1475,6 +1476,7 @@ ecs.registerBehavior((w: any) => {
       const dy = e.touches[0].clientY - e.touches[1].clientY
       touchStartDist = Math.sqrt(dx * dx + dy * dy)
       touchStartScale = mapGroup.scale.x
+      touchStartPlanetScale = selectedPlanet ? selectedPlanet.scale.x : 1
       lastAvgX = (e.touches[0].clientX + e.touches[1].clientX) / 2
       lastAvgY = (e.touches[0].clientY + e.touches[1].clientY) / 2
       lastTouchAngle = Math.atan2(dy, dx)
@@ -1495,9 +1497,16 @@ ecs.registerBehavior((w: any) => {
       const currentAngle = Math.atan2(dy, dx)
       
       if (touchStartDist > 0) {
-        let s = touchStartScale * (dist / touchStartDist)
-        s = Math.max(0.2, Math.min(s, 5.0))
-        applyZoomAtScreenPoint(s, (e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2)
+        if (isSolarSystem && selectedPlanet) {
+          let s = touchStartPlanetScale * (dist / touchStartDist)
+          const maxScale = (selectedPlanet.userData && selectedPlanet.userData.name === 'Sun') ? 20.0 : 5.0
+          s = Math.max(0.2, Math.min(s, maxScale))
+          selectedPlanet.scale.set(s, s, s)
+        } else {
+          let s = touchStartScale * (dist / touchStartDist)
+          s = Math.max(0.2, Math.min(s, 5.0))
+          applyZoomAtScreenPoint(s, (e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2)
+        }
       }
 
       // Handle Twist (Roll)

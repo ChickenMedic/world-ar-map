@@ -527,7 +527,8 @@ function buildMap(scene: any) {
       targetResetRotationX = -1.4 // Smoothly animate map pitch back
       globeGroup.rotation.set(0, -Math.PI / 2, -23.5 * (Math.PI / 180)) // Reset tilt
     } else {
-      mapGroup.rotation.x = 0 // Keep the solar system plane parallel to the physical floor!
+      const isDesktopEnv = !(/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && navigator.maxTouchPoints <= 1
+      mapGroup.rotation.x = isDesktopEnv ? -Math.PI / 6 : 0 // Tilt on desktop for top-down view, keep flat on AR floor
       targetResetRotationX = null
     }
   })
@@ -1048,7 +1049,7 @@ ecs.registerBehavior((w: any) => {
   // Create UI overlay for placement instructions
   const placementUI = document.createElement('div')
   Object.assign(placementUI.style, {
-    position: 'absolute', top: '10%', left: '50%', transform: 'translateX(-50%)',
+    position: 'absolute', bottom: '5%', top: 'auto', left: '50%', transform: 'translateX(-50%)',
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px',
     backgroundColor: 'rgba(20,20,20,0.85)', padding: '20px', borderRadius: '15px',
     fontFamily: 'sans-serif', zIndex: '9999', border: '1px solid rgba(255,255,255,0.3)',
@@ -1120,7 +1121,8 @@ ecs.registerBehavior((w: any) => {
     placementUI.style.display = 'none'
     const dir = new T.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
     mapGroup.position.copy(cam.position).add(dir.multiplyScalar(2.0))
-    mapGroup.position.y -= 1.0 // Lower the globe so camera naturally looks DOWN on the solar system
+    mapGroup.position.y -= 0.5 
+    mapGroup.rotation.x = -Math.PI / 6 // Tilt globe to look down on it natively in desktop
     mapGroup.userData.originPos = mapGroup.position.clone()
   }
 
@@ -1476,7 +1478,12 @@ ecs.registerBehavior((w: any) => {
         if (angleDiff < -Math.PI) angleDiff += Math.PI * 2
 
         const forwardAxis = new T.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
-        mapGroup.rotateOnWorldAxis(forwardAxis, -angleDiff)
+        
+        if (isSolarSystem) {
+          if (selectedPlanet) selectedPlanet.rotateOnWorldAxis(forwardAxis, -angleDiff)
+        } else {
+          mapGroup.rotateOnWorldAxis(forwardAxis, -angleDiff)
+        }
         
         lastTouchAngle = currentAngle
       }
@@ -1490,6 +1497,11 @@ ecs.registerBehavior((w: any) => {
         // 2-finger drag to pan (translate) the globe in space
         const right = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
         const up = new T.Vector3(0, 1, 0).applyQuaternion(cam.quaternion)
+        
+        if (isSolarSystem) {
+          right.y = 0; right.normalize() // Lock panning to horizontal floor!
+          up.y = 0; up.normalize()
+        }
 
         // scaled loosely by map scale to feel right
         const panMultiplier = isSolarSystem ? 2.0 : 1.0

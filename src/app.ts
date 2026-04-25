@@ -1095,6 +1095,15 @@ ecs.registerBehavior((w: any) => {
   const reticleLine = new T.Line(lineGeom, lineMat)
   reticle.add(reticleLine)
 
+  const isDesktop = !(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))
+  if (isDesktop) {
+    isPlaced = true
+    placementUI.style.display = 'none'
+    const dir = new T.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
+    mapGroup.position.copy(cam.position).add(dir.multiplyScalar(1.5))
+    mapGroup.userData.originPos = mapGroup.position.clone()
+  }
+
   // Animation loop to perform hit test and place reticle + mapGroup
   const updatePlacement = () => {
     if (isPlaced) {
@@ -1102,34 +1111,39 @@ ecs.registerBehavior((w: any) => {
       return
     }
     
+    let hitSuccess = false
+    
     // Attempt 8th Wall Hit Test at center of screen (0.5, 0.5)
     if ((window as any).XR8 && (window as any).XR8.XrController) {
-      const hitRes = (window as any).XR8.XrController.hitTest(0.5, 0.5, ['FEATURE_POINT', 'ESTIMATED_SURFACE'])
-      if (hitRes && hitRes.length > 0) {
-        const hit = hitRes[0]
-        reticle.position.set(hit.position.x, hit.position.y, hit.position.z)
-        reticle.quaternion.set(hit.rotation.x, hit.rotation.y, hit.rotation.z, hit.rotation.w)
-        surfaceFound = true
-      } else {
-        surfaceFound = false
-      }
-    } else {
-      // Fallback if testing locally outside AR
-      const dir = new T.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
+      try {
+        const hitRes = (window as any).XR8.XrController.hitTest(0.5, 0.5, ['FEATURE_POINT', 'ESTIMATED_SURFACE'])
+        if (hitRes && hitRes.length > 0) {
+          const hit = hitRes[0]
+          reticle.position.set(hit.position.x, hit.position.y, hit.position.z)
+          reticle.quaternion.set(hit.rotation.x, hit.rotation.y, hit.rotation.z, hit.rotation.w)
+          hitSuccess = true
+        }
+      } catch (e) {}
+    }
+
+    if (!hitSuccess) {
+      // Fallback: Stick it 1.5m in front of the camera, 1m down
+      const dir = new T.Vector3(0, 0, -1)
+      dir.applyQuaternion(cam.quaternion)
       reticle.position.copy(cam.position).add(dir.multiplyScalar(1.5))
-      reticle.position.y -= 1.0
-      reticle.rotation.x = -Math.PI / 2
-      surfaceFound = true
+      reticle.position.y -= 1.0 // Estimate floor is 1m below phone
+      reticle.rotation.x = -Math.PI / 2 // Flat on floor
+      reticle.rotation.y = 0
+      reticle.rotation.z = 0
     }
 
-    reticle.visible = surfaceFound
+    // Always keep reticle visible during placement!
+    reticle.visible = true
 
-    if (surfaceFound) {
-      // Place the map directly above the reticle based on the height slider
-      const heightOffset = parseFloat(heightSlider.value)
-      mapGroup.position.copy(reticle.position)
-      mapGroup.position.y += heightOffset
-    }
+    // Always place the map directly above the reticle based on the height slider
+    const heightOffset = parseFloat(heightSlider.value)
+    mapGroup.position.copy(reticle.position)
+    mapGroup.position.y += heightOffset
     
     requestAnimationFrame(updatePlacement)
   }

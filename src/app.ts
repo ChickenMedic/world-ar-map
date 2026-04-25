@@ -213,13 +213,13 @@ function buildMap(scene: any) {
       ? new T.MeshStandardMaterial({ map: new T.TextureLoader().load(sunTex), emissive: 0xffaa00, emissiveIntensity: 0.2 })
       : new T.MeshBasicMaterial({ color: 0xffdd44 })
     
-    sunMesh = new T.Mesh(new T.SphereGeometry(6.0, 32, 32), sunMat)
+    sunMesh = new T.Mesh(new T.SphereGeometry(20.0, 64, 64), sunMat)
     sunMesh.userData = { isPlanet: true, name: 'Sun' }
     solarSystemGroup.add(sunMesh)
     
-    const sunLbl = createLabelSprite('Sun', 20.0)
+    const sunLbl = createLabelSprite('Sun', 30.0)
     if (sunLbl) {
-      sunLbl.position.set(0, 8.0, 0)
+      sunLbl.position.set(0, 22.0, 0)
       sunMesh.add(sunLbl)
     }
 
@@ -488,6 +488,9 @@ function buildMap(scene: any) {
     solarBtn.innerText = isSolarSystem ? '🌌 Solar System: ON' : '🌌 Solar System: OFF'
     solarBtn.style.backgroundColor = isSolarSystem ? 'rgba(80, 20, 150, 0.8)' : 'rgba(20, 20, 20, 0.6)'
     
+    const sliderBox = document.getElementById('orbit-slider-container')
+    if (sliderBox) sliderBox.style.display = isSolarSystem ? 'flex' : 'none'
+
     selectedPlanet = null // Reset selection on toggle
 
     if (!isSolarSystem) {
@@ -498,6 +501,33 @@ function buildMap(scene: any) {
       targetResetRotationX = null
     }
   })
+
+  // ── UI Overlay for Solar System Orbit Slider ──
+  const sliderContainer = document.createElement('div')
+  sliderContainer.id = 'orbit-slider-container'
+  Object.assign(sliderContainer.style, {
+    width: '220px', display: 'none', flexDirection: 'column', alignItems: 'center', gap: '8px',
+    backgroundColor: 'rgba(20, 20, 20, 0.6)', padding: '15px 20px', borderRadius: '15px',
+    backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.2)'
+  })
+  
+  const sliderLabel = document.createElement('label')
+  sliderLabel.innerText = 'Orbit Time (Years)'
+  Object.assign(sliderLabel.style, {
+    color: '#ffffff', fontSize: '14px', fontWeight: 'bold', fontFamily: 'sans-serif'
+  })
+  
+  const orbitSlider = document.createElement('input')
+  orbitSlider.id = 'solar-orbit-slider'
+  orbitSlider.type = 'range'
+  orbitSlider.min = '0'
+  orbitSlider.max = '360'
+  orbitSlider.value = '0'
+  orbitSlider.style.width = '100%'
+  
+  sliderContainer.appendChild(sliderLabel)
+  sliderContainer.appendChild(orbitSlider)
+  menuOptions.appendChild(sliderContainer)
 
   // ── UI Overlay for Ball Toggle ──
   const ballBtn = document.createElement('button')
@@ -825,9 +855,14 @@ ecs.registerBehavior((w: any) => {
       const time = performance.now() * 0.0005
 
       if (isSolarSystem) {
-        const earthDist = 30 // Spread out
+        const earthDist = 50 // Spread out to accommodate 20.0 radius sun
         const sunX = -earthDist
         
+        const sliderInput = document.getElementById('solar-orbit-slider') as HTMLInputElement
+        if (sliderInput) {
+          solarSystemGroup.rotation.y = -(parseFloat(sliderInput.value) * Math.PI / 180)
+        }
+
         if (sunMesh) {
           sunMesh.position.set(sunX, 0, 0)
           sunMesh.rotation.y += 0.005
@@ -898,23 +933,46 @@ ecs.registerBehavior((w: any) => {
 
 // Camera placement + controls
 ecs.registerBehavior((w: any) => {
-  if (!mapGroup || !w.three.activeCamera || mapGroup.userData.placed) return
-  mapGroup.userData.placed = true
+  if (!mapGroup || !w.three.activeCamera || mapGroup.userData.initializedControls) return
+  mapGroup.userData.initializedControls = true
 
   const cam = w.three.activeCamera
 
-  // Calculate forward direction from camera
-  const dir = new T.Vector3(0, 0, -1)
-  dir.applyQuaternion(cam.quaternion)
+  // Hide the map initially until the user places it
+  mapGroup.visible = false
   
-  // Place the globe directly in front of where the user is looking
-  // Globe radius is 0.5m. Place it 1.5m away so it's perfectly in view.
-  mapGroup.position.copy(cam.position).add(dir.multiplyScalar(1.5))
-  // Lower it slightly so they look slightly down on the northern hemisphere
-  mapGroup.position.y -= 0.2
+  // Create UI overlay for placement instructions
+  const placementUI = document.createElement('div')
+  Object.assign(placementUI.style, {
+    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+    color: 'white', backgroundColor: 'rgba(0,0,0,0.85)', padding: '25px', borderRadius: '15px',
+    fontFamily: 'sans-serif', fontSize: '20px', textAlign: 'center', zIndex: '9999',
+    pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.3)',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', transition: 'opacity 0.5s ease'
+  })
+  placementUI.innerHTML = '<b style="font-size:24px;">🌍 AR Globe Ready</b><br/><br/><span style="font-size:16px; color:#ddd;">Slowly look around your room to scan it.<br/><br/>Then <b>Tap Anywhere</b> to place the globe.</span>'
+  document.body.appendChild(placementUI)
 
-  // Save the origin so we can clamp panning
-  mapGroup.userData.originPos = mapGroup.position.clone()
+  let isPlaced = false
+
+  const placeGlobe = () => {
+    isPlaced = true
+    mapGroup.visible = true
+    placementUI.style.opacity = '0'
+    setTimeout(() => placementUI.remove(), 500)
+
+    const dir = new T.Vector3(0, 0, -1)
+    dir.applyQuaternion(cam.quaternion)
+    
+    // Place the globe directly in front of where the user is looking
+    // Globe radius is 0.5m. Place it 1.5m away so it's perfectly in view.
+    mapGroup.position.copy(cam.position).add(dir.multiplyScalar(1.5))
+    // Lower it slightly so they look slightly down on the northern hemisphere
+    mapGroup.position.y -= 0.2
+    
+    // Save the origin so we can clamp panning
+    mapGroup.userData.originPos = mapGroup.position.clone()
+  }
 
   // ── MOUSE CONTROLS ──
   let isSpinning = false
@@ -933,6 +991,10 @@ ecs.registerBehavior((w: any) => {
 
   const downListener = (e: PointerEvent) => {
     if (isUI(e)) return
+    if (!isPlaced) {
+      placeGlobe()
+      return
+    }
     targetGlobeRotationY = null
     if (e.pointerType === 'touch') return
     if (e.button === 0) isSpinning = true
@@ -948,37 +1010,13 @@ ecs.registerBehavior((w: any) => {
     const dy = e.clientY - previousY
 
     if (isSpinning) {
-      if (!isSolarSystem) {
-        // Spin the Earth locally around its tilted 23.5-degree axis!
-        globeGroup.rotateY(dx * 0.005)
-        
-        // Pitch the entire map group up/down
-        const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
-      } else {
-        // Left Click spins the solar system around the selected pivot
-        const upAxis = new T.Vector3(0, 1, 0)
-        const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-
-        const pivot = new T.Vector3()
-        if (selectedPlanet) {
-          selectedPlanet.getWorldPosition(pivot)
-        } else {
-          pivot.copy(mapGroup.position) // default spin around map center
-        }
-
-        // Rotate mapGroup around pivot (Horizontal)
-        mapGroup.position.sub(pivot)
-        mapGroup.position.applyAxisAngle(upAxis, dx * 0.005)
-        mapGroup.position.add(pivot)
-        mapGroup.rotateOnWorldAxis(upAxis, dx * 0.005)
-
-        // Rotate mapGroup around pivot (Vertical)
-        mapGroup.position.sub(pivot)
-        mapGroup.position.applyAxisAngle(rightAxis, -dy * 0.005)
-        mapGroup.position.add(pivot)
-        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
-      }
+      // Rotate whichever planet is selected, or the Earth if nothing/Earth is selected
+      const targetToSpin = (isSolarSystem && selectedPlanet && selectedPlanet !== globeGroup) ? selectedPlanet : globeGroup
+      targetToSpin.rotateY(dx * 0.005)
+      
+      // Pitch the entire map group up/down
+      const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
+      mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
     } else if (isPanning) {
       // Right Click translates the globe
       const right = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
@@ -1158,6 +1196,10 @@ ecs.registerBehavior((w: any) => {
 
   window.addEventListener('touchstart', (e: TouchEvent) => {
     if (isUI(e as any)) return
+    if (!isPlaced) {
+      placeGlobe()
+      return
+    }
     targetGlobeRotationY = null
     touchCount = e.touches.length
     if (e.touches.length === 2) {
@@ -1238,36 +1280,11 @@ ecs.registerBehavior((w: any) => {
       const dx = e.touches[0].clientX - lastTouchX
       const dy = e.touches[0].clientY - lastTouchY
       
-      if (!isSolarSystem) {
-        // Spin the Earth locally around its tilted 23.5-degree axis!
-        globeGroup.rotateY(dx * 0.005)
-        
-        // Pitch the entire map group up/down
-        const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
-      } else {
-        const upAxis = new T.Vector3(0, 1, 0)
-        const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-
-        const pivot = new T.Vector3()
-        if (selectedPlanet) {
-          selectedPlanet.getWorldPosition(pivot)
-        } else {
-          pivot.copy(mapGroup.position)
-        }
-
-        // Horizontal
-        mapGroup.position.sub(pivot)
-        mapGroup.position.applyAxisAngle(upAxis, dx * 0.005)
-        mapGroup.position.add(pivot)
-        mapGroup.rotateOnWorldAxis(upAxis, dx * 0.005)
-
-        // Vertical
-        mapGroup.position.sub(pivot)
-        mapGroup.position.applyAxisAngle(rightAxis, -dy * 0.005)
-        mapGroup.position.add(pivot)
-        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
-      }
+      const targetToSpin = (isSolarSystem && selectedPlanet && selectedPlanet !== globeGroup) ? selectedPlanet : globeGroup
+      targetToSpin.rotateY(dx * 0.005)
+      
+      const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
+      mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
 
       lastTouchX = e.touches[0].clientX
       lastTouchY = e.touches[0].clientY

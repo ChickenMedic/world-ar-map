@@ -528,7 +528,10 @@ function buildMap(scene: any) {
       globeGroup.rotation.set(0, -Math.PI / 2, -23.5 * (Math.PI / 180)) // Reset tilt
     } else {
       const isDesktopEnv = !(/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && navigator.maxTouchPoints <= 1
-      mapGroup.rotation.x = isDesktopEnv ? -Math.PI / 6 : 0 // Tilt on desktop for top-down view, keep flat on AR floor
+      const defaultTilt = isDesktopEnv ? -30 : 0
+      const tSlider = document.getElementById('solar-tilt-slider') as HTMLInputElement
+      if (tSlider) tSlider.value = defaultTilt.toString()
+      mapGroup.rotation.x = defaultTilt * (Math.PI / 180)
       targetResetRotationX = null
     }
   })
@@ -556,8 +559,29 @@ function buildMap(scene: any) {
   orbitSlider.value = '0'
   orbitSlider.style.width = '100%'
   
+  const tiltLabel = document.createElement('label')
+  tiltLabel.innerText = 'Tilt Plane'
+  Object.assign(tiltLabel.style, {
+    color: '#ffffff', fontSize: '14px', fontWeight: 'bold', fontFamily: 'sans-serif', marginTop: '10px'
+  })
+  
+  const tiltSlider = document.createElement('input')
+  tiltSlider.id = 'solar-tilt-slider'
+  tiltSlider.type = 'range'
+  tiltSlider.min = '-90'
+  tiltSlider.max = '90'
+  tiltSlider.value = '0'
+  tiltSlider.style.width = '100%'
+
+  tiltSlider.addEventListener('input', (e) => {
+    const val = parseFloat((e.target as HTMLInputElement).value)
+    mapGroup.rotation.x = val * (Math.PI / 180)
+  })
+  
   sliderContainer.appendChild(sliderLabel)
   sliderContainer.appendChild(orbitSlider)
+  sliderContainer.appendChild(tiltLabel)
+  sliderContainer.appendChild(tiltSlider)
   menuOptions.appendChild(sliderContainer)
 
   // ── UI Overlay for Ball Toggle ──
@@ -1389,6 +1413,12 @@ ecs.registerBehavior((w: any) => {
     const nx = (pointerX / canvas.clientWidth) * 2 - 1
     const ny = -(pointerY / canvas.clientHeight) * 2 + 1
     raycaster.setFromCamera(new T.Vector2(nx, ny), currentCam)
+
+    if (isSolarSystem) {
+      // Direct center scaling for solar system to avoid violent translations when zooming distant planets
+      mapGroup.scale.set(newScale, newScale, newScale)
+      return
+    }
 
     const normal = new T.Vector3(0, 0, 1).applyQuaternion(currentCam.quaternion).normalize()
     const plane = new T.Plane().setFromNormalAndCoplanarPoint(normal, mapGroup.position)

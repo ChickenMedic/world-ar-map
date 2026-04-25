@@ -59,6 +59,7 @@ let isSolarSystem = false
 let capitalMarker: any = null
 let kuiperGroup: any = null
 let orbitsGroup: any = null
+let earthOrbitMeshRef: any = null
 let isPolitical = true
 let selectedCountryMesh: any = null
 let isBallOn = false
@@ -240,6 +241,7 @@ function buildMap(scene: any) {
     const earthOrbitMat = new T.MeshBasicMaterial({ color: 0x4488ff, side: T.DoubleSide, transparent: true, opacity: 0.25 })
     const earthOrbitMesh = new T.Mesh(earthOrbitGeom, earthOrbitMat)
     earthOrbitMesh.rotation.x = Math.PI / 2
+    earthOrbitMeshRef = earthOrbitMesh
     orbitsGroup.add(earthOrbitMesh)
 
     planetsData.forEach(p => {
@@ -266,6 +268,7 @@ function buildMap(scene: any) {
       const orbitMat = new T.MeshBasicMaterial({ color: p.color, side: T.DoubleSide, transparent: true, opacity: 0.25 })
       const orbitMesh = new T.Mesh(orbitGeom, orbitMat)
       orbitMesh.rotation.x = Math.PI / 2
+      p.orbitMesh = orbitMesh
       orbitsGroup.add(orbitMesh)
 
       if (p.hasRings) {
@@ -436,7 +439,7 @@ function buildMap(scene: any) {
   const hamburgerBtn = document.createElement('button')
   hamburgerBtn.innerText = '☰ Options'
   Object.assign(hamburgerBtn.style, {
-    padding: '12px 20px', fontSize: '18px', fontWeight: 'bold',
+    padding: '12px 20px', fontSize: '18px', fontWeight: 'bold', fontFamily: 'sans-serif',
     color: '#ffffff', backgroundColor: 'rgba(20, 20, 20, 0.8)',
     backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.2)',
     borderRadius: '30px', cursor: 'pointer', transition: 'all 0.3s ease',
@@ -464,7 +467,7 @@ function buildMap(scene: any) {
   toggleBtn.id = 'country-toggle-btn'
   toggleBtn.innerText = '🌍 Countries: ON'
   Object.assign(toggleBtn.style, {
-    width: '220px', padding: '12px 20px', fontSize: '16px', fontWeight: 'bold',
+    width: '220px', padding: '12px 20px', fontSize: '16px', fontWeight: 'bold', fontFamily: 'sans-serif',
     color: '#ffffff', backgroundColor: 'rgba(20, 20, 20, 0.6)',
     backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.2)',
     borderRadius: '30px', cursor: 'pointer', transition: 'all 0.3s ease',
@@ -488,18 +491,46 @@ function buildMap(scene: any) {
     })
   })
 
-  // ── UI Overlay for Solar System ──
   const solarBtn = document.createElement('button')
   solarBtn.id = 'solar-toggle-btn'
   solarBtn.innerText = '🌌 Solar System: OFF'
   Object.assign(solarBtn.style, {
-    width: '220px', padding: '12px 20px', fontSize: '16px', fontWeight: 'bold',
+    width: '220px', padding: '12px 20px', fontSize: '16px', fontWeight: 'bold', fontFamily: 'sans-serif',
     color: '#ffffff', backgroundColor: 'rgba(20, 20, 20, 0.6)',
     backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.2)',
     borderRadius: '30px', cursor: 'pointer', transition: 'all 0.3s ease',
     userSelect: 'none', touchAction: 'manipulation'
   })
   menuOptions.appendChild(solarBtn)
+
+  // ── UI Overlay for Reset View Button ──
+  const resetBtn = document.createElement('button')
+  resetBtn.id = 'reset-btn'
+  resetBtn.innerText = '↺ Reset View'
+  Object.assign(resetBtn.style, {
+    width: '220px', padding: '12px 20px', fontSize: '16px', fontWeight: 'bold', fontFamily: 'sans-serif',
+    color: '#ffffff', backgroundColor: 'rgba(200, 50, 50, 0.8)',
+    backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: '30px', cursor: 'pointer', transition: 'all 0.3s ease',
+    userSelect: 'none', touchAction: 'manipulation'
+  })
+  menuOptions.appendChild(resetBtn)
+
+  resetBtn.addEventListener('click', (e) => {
+    e.preventDefault()
+    focusOnPlanet(globeGroup)
+    selectedPlanet = globeGroup
+    if (isSolarSystem) {
+      const slider = document.getElementById('solar-orbit-slider') as HTMLInputElement
+      if (slider) {
+        slider.value = '0'
+        solarSystemGroup.rotation.y = 0
+      }
+    } else {
+      targetResetRotationX = -1.4
+    }
+    globeGroup.rotation.set(0, -Math.PI / 2, -23.5 * (Math.PI / 180))
+  })
 
   solarBtn.addEventListener('click', (e) => {
     e.preventDefault()
@@ -895,12 +926,20 @@ ecs.registerBehavior((w: any) => {
         
         if (orbitsGroup) {
           orbitsGroup.position.set(sunX, 0, 0)
-          orbitsGroup.visible = (selectedPlanet === null || selectedPlanet === globeGroup)
+          
+          if (earthOrbitMeshRef) earthOrbitMeshRef.visible = true
+          planetsData.forEach(p => { if (p.orbitMesh) p.orbitMesh.visible = true })
+          
+          if (selectedPlanet === globeGroup && earthOrbitMeshRef) earthOrbitMeshRef.visible = false
+          planetsData.forEach(p => {
+            if (selectedPlanet === p.mesh && p.orbitMesh) p.orbitMesh.visible = false
+          })
         }
 
         // Earth is static at 0,0,0
         globeGroup.position.set(0, 0, 0)
-        if (selectedPlanet !== globeGroup) {
+        // Only snap Earth's rotation back if a different planet is selected
+        if (selectedPlanet && selectedPlanet !== globeGroup) {
            globeGroup.rotation.x += (0 - globeGroup.rotation.x) * 0.05
            globeGroup.rotation.z += (-23.5 * (Math.PI / 180) - globeGroup.rotation.z) * 0.05
         }

@@ -63,9 +63,10 @@
       "camera": {
         "type": "perspective",
         "xr": {
-          "desktop": "3D",
+          "desktop": "disabled",
           "phone": "AR",
-          "headset": "disabled"
+          "headset": "disabled",
+          "xrCameraType": "world"
         }
       },
       "components": {},
@@ -101,7 +102,8 @@
       "reflections": {
         "type": "url",
         "url": "https://cdn.8thwall.com/web/assets/envmap/basic_env_map-m9hqpneh.jpg"
-      }
+      },
+      "fog": null
     }
   },
   "entrySpaceId": "88453035-dc0f-486d-868a-8ff7c2fda864",

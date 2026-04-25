@@ -919,7 +919,24 @@ ecs.registerBehavior((w: any) => {
         
         const sliderInput = document.getElementById('solar-orbit-slider') as HTMLInputElement
         if (sliderInput) {
+          const oldRot = solarSystemGroup.rotation.y
           solarSystemGroup.rotation.y = -(parseFloat(sliderInput.value) * Math.PI / 180)
+          
+          if (oldRot !== solarSystemGroup.rotation.y && selectedPlanet && selectedPlanet !== globeGroup) {
+             // Keep camera perfectly locked onto the planet while dragging the slider!
+             const temp = new T.Vector3()
+             selectedPlanet.getWorldPosition(temp)
+             mapGroup.worldToLocal(temp)
+             if (selectedPlanet === sunMesh) temp.x += 15
+             targetFocusLocalPos.copy(temp)
+             
+             if (mapGroup.userData.originPos) {
+                const targetWorld = mapGroup.localToWorld(targetFocusLocalPos.clone())
+                const offset = new T.Vector3().subVectors(mapGroup.userData.originPos, targetWorld)
+                mapGroup.position.add(offset) // Snap instantly for tight orbit feel
+                isAnimatingFocus = false // We are manually overriding focus
+             }
+          }
         }
 
         if (sunMesh) {

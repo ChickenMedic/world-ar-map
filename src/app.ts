@@ -890,6 +890,7 @@ ecs.registerBehavior((w: any) => {
         
         if (orbitsGroup) {
           orbitsGroup.position.set(sunX, 0, 0)
+          orbitsGroup.visible = (selectedPlanet === null || selectedPlanet === globeGroup)
         }
 
         // Earth is static at 0,0,0
@@ -1057,13 +1058,20 @@ ecs.registerBehavior((w: any) => {
     if (isSpinning) {
       // Rotate whichever planet is selected, or the Earth if nothing/Earth is selected
       const targetToSpin = (isSolarSystem && selectedPlanet && selectedPlanet !== globeGroup) ? selectedPlanet : globeGroup
-      targetToSpin.rotateY(dx * 0.005)
-      targetToSpin.rotateX(dy * 0.005)
       
-      if (!isSolarSystem) {
-        // Pitch the entire map group up/down
+      if (targetToSpin === globeGroup) {
+        // Earth must maintain its 23.5 deg tilt, so we only rotate Y locally.
+        targetToSpin.rotateY(dx * 0.005)
+        if (!isSolarSystem) {
+          const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
+          mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+        }
+      } else {
+        // Free trackball rotation for all other planets
         const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+        const upAxis = new T.Vector3(0, 1, 0).applyQuaternion(cam.quaternion)
+        targetToSpin.rotateOnWorldAxis(upAxis, dx * 0.005)
+        targetToSpin.rotateOnWorldAxis(rightAxis, dy * 0.005)
       }
     } else if (isPanning) {
       // Right Click translates the globe
@@ -1329,12 +1337,18 @@ ecs.registerBehavior((w: any) => {
       const dy = e.touches[0].clientY - lastTouchY
       
       const targetToSpin = (isSolarSystem && selectedPlanet && selectedPlanet !== globeGroup) ? selectedPlanet : globeGroup
-      targetToSpin.rotateY(dx * 0.005)
-      targetToSpin.rotateX(dy * 0.005)
       
-      if (!isSolarSystem) {
+      if (targetToSpin === globeGroup) {
+        targetToSpin.rotateY(dx * 0.005)
+        if (!isSolarSystem) {
+          const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
+          mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+        }
+      } else {
         const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+        const upAxis = new T.Vector3(0, 1, 0).applyQuaternion(cam.quaternion)
+        targetToSpin.rotateOnWorldAxis(upAxis, dx * 0.005)
+        targetToSpin.rotateOnWorldAxis(rightAxis, dy * 0.005)
       }
 
       lastTouchX = e.touches[0].clientX

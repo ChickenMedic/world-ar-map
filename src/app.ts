@@ -1102,9 +1102,9 @@ ecs.registerBehavior((w: any) => {
   let isPlaced = false
   let surfaceFound = false
   
-  // AR Surface Reticle
-  const reticleGeom = new T.RingGeometry(0.4, 0.5, 32)
-  const reticleMat = new T.MeshBasicMaterial({ color: 0xffffff, side: T.DoubleSide, transparent: true, opacity: 0.8 })
+  // AR Surface Reticle (Changed to a flat cylinder/puck to guarantee correct Y-up orientation)
+  const reticleGeom = new T.CylinderGeometry(0.5, 0.5, 0.05, 32)
+  const reticleMat = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 })
   const reticle = new T.Mesh(reticleGeom, reticleMat)
   w.three.scene.add(reticle)
   
@@ -1112,21 +1112,25 @@ ecs.registerBehavior((w: any) => {
   const lineGeom = new T.BufferGeometry().setFromPoints([new T.Vector3(0, 0, 0), new T.Vector3(0, 2.0, 0)])
   const lineMat = new T.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 })
   const reticleLine = new T.Line(lineGeom, lineMat)
-  reticle.add(reticleLine)
+  w.three.scene.add(reticleLine) // Add to scene so it doesn't inherit donut's flat rotation!
 
   const isDesktop = !(/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && navigator.maxTouchPoints <= 1
   if (isDesktop) {
     isPlaced = true
     placementUI.style.display = 'none'
     const dir = new T.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
-    mapGroup.position.copy(cam.position).add(dir.multiplyScalar(1.5))
+    mapGroup.position.copy(cam.position).add(dir.multiplyScalar(2.0))
+    mapGroup.position.y -= 1.0 // Lower the globe so camera naturally looks DOWN on the solar system
     mapGroup.userData.originPos = mapGroup.position.clone()
   }
 
   // Animation loop to perform hit test and place reticle + mapGroup
+  let hasFoundSurfaceEver = false
+  
   const updatePlacement = () => {
     if (isPlaced) {
       reticle.visible = false
+      reticleLine.visible = false
       return
     }
     
@@ -1141,27 +1145,38 @@ ecs.registerBehavior((w: any) => {
         if (hitRes && hitRes.length > 0) {
           const hit = hitRes[0]
           const targetPos = new T.Vector3(hit.position.x, hit.position.y, hit.position.z)
+          const targetQuat = new T.Quaternion(hit.rotation.x, hit.rotation.y, hit.rotation.z, hit.rotation.w)
           
           // Smoothly interpolate towards the physical hit test
           reticle.position.lerp(targetPos, 0.1)
-          reticle.rotation.set(-Math.PI / 2, 0, 0) // FORCE FLAT
+          reticle.quaternion.slerp(targetQuat, 0.1) // 8th Wall natively aligns +Y to the surface normal!
           hitSuccess = true
+          hasFoundSurfaceEver = true
         }
       } catch (e) {}
     }
 
     if (!hitSuccess) {
-      // Fallback: Stick it 1.5m in front of the camera, 1m down
-      const dir = new T.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
-      const targetPos = cam.position.clone().add(dir.multiplyScalar(1.5))
-      targetPos.y -= 1.0 // Estimate floor is 1m below phone
+      if (!hasFoundSurfaceEver) {
+        // ONLY fallback to arbitrary camera projection if we've NEVER seen the floor!
+        // Otherwise, just leave the reticle exactly where it was last seen to prevent janky jumping!
+        const dir = new T.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
+        const targetPos = cam.position.clone().add(dir.multiplyScalar(1.5))
+        targetPos.y -= 1.0 // Estimate floor is 1m below phone
+        
+        reticle.position.lerp(targetPos, 0.1)
+      }
       
-      reticle.position.lerp(targetPos, 0.1)
-      reticle.rotation.set(-Math.PI / 2, 0, 0)
+      // Fallback is flat on the ground (Identity quaternion)
+      reticle.quaternion.slerp(new T.Quaternion(), 0.1)
     }
+
+    // Anchor the vertical line to the donut's exact position
+    reticleLine.position.copy(reticle.position)
 
     // Always keep reticle visible during placement!
     reticle.visible = true
+    reticleLine.visible = true
 
     // Show the placement UI now that AR is definitely ticking
     if (!isDesktop && placementUI.style.display === 'none') {

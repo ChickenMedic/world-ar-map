@@ -1095,7 +1095,7 @@ ecs.registerBehavior((w: any) => {
   const reticleLine = new T.Line(lineGeom, lineMat)
   reticle.add(reticleLine)
 
-  const isDesktop = !(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))
+  const isDesktop = !(/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && navigator.maxTouchPoints <= 1
   if (isDesktop) {
     isPlaced = true
     placementUI.style.display = 'none'
@@ -1116,7 +1116,9 @@ ecs.registerBehavior((w: any) => {
     // Attempt 8th Wall Hit Test at center of screen (0.5, 0.5)
     if ((window as any).XR8 && (window as any).XR8.XrController) {
       try {
-        const hitRes = (window as any).XR8.XrController.hitTest(0.5, 0.5, ['FEATURE_POINT', 'ESTIMATED_SURFACE'])
+        const HitTypes = (window as any).XR8.XrController.HitTestTypes || {}
+        const types = [HitTypes.FEATURE_POINT || 'FEATURE_POINT', HitTypes.ESTIMATED_SURFACE || 'ESTIMATED_SURFACE']
+        const hitRes = (window as any).XR8.XrController.hitTest(0.5, 0.5, types)
         if (hitRes && hitRes.length > 0) {
           const hit = hitRes[0]
           reticle.position.set(hit.position.x, hit.position.y, hit.position.z)

@@ -79,6 +79,9 @@ function focusOnPlanet(planetMesh: any) {
     const temp = new T.Vector3()
     planetMesh.getWorldPosition(temp)
     mapGroup.worldToLocal(temp)
+    if (planetMesh === sunMesh) {
+      temp.x += 15 // Offset focus so camera doesn't go inside the sun
+    }
     targetFocusLocalPos.copy(temp)
   }
 }
@@ -214,13 +217,13 @@ function buildMap(scene: any) {
       ? new T.MeshStandardMaterial({ map: new T.TextureLoader().load(sunTex), emissive: 0xffaa00, emissiveIntensity: 0.2 })
       : new T.MeshBasicMaterial({ color: 0xffdd44 })
     
-    sunMesh = new T.Mesh(new T.SphereGeometry(20.0, 64, 64), sunMat)
+    sunMesh = new T.Mesh(new T.SphereGeometry(10.0, 64, 64), sunMat)
     sunMesh.userData = { isPlanet: true, name: 'Sun' }
     solarSystemGroup.add(sunMesh)
     
-    const sunLbl = createLabelSprite('Sun', 30.0)
+    const sunLbl = createLabelSprite('Sun', 20.0)
     if (sunLbl) {
-      sunLbl.position.set(0, 22.0, 0)
+      sunLbl.position.set(0, 13.0, 0)
       sunMesh.add(sunLbl)
     }
 
@@ -232,6 +235,12 @@ function buildMap(scene: any) {
 
     orbitsGroup = new T.Group()
     solarSystemGroup.add(orbitsGroup)
+    
+    const earthOrbitGeom = new T.RingGeometry(50 - 0.3, 50 + 0.3, 128)
+    const earthOrbitMat = new T.MeshBasicMaterial({ color: 0x4488ff, side: T.DoubleSide, transparent: true, opacity: 0.25 })
+    const earthOrbitMesh = new T.Mesh(earthOrbitGeom, earthOrbitMat)
+    earthOrbitMesh.rotation.x = Math.PI / 2
+    orbitsGroup.add(earthOrbitMesh)
 
     planetsData.forEach(p => {
       p.pivot = new T.Group()
@@ -302,8 +311,8 @@ function buildMap(scene: any) {
 
     const kuiperLbl = createLabelSprite('Kuiper Belt', 20.0)
     if (kuiperLbl) {
-      kuiperLbl.position.set(0, 8.0, 125) // Place it visually within the belt distance
-      kuiperGroup.add(kuiperLbl)
+      kuiperLbl.position.set(0, 8.0, 215) // Static position near Pluto
+      solarSystemGroup.add(kuiperLbl) // Keep name locked by adding to solarSystemGroup
     }
 
     solarSystemGroup.add(kuiperGroup)
@@ -523,7 +532,7 @@ function buildMap(scene: any) {
   })
   
   const sliderLabel = document.createElement('label')
-  sliderLabel.innerText = 'Orbit Time (Years)'
+  sliderLabel.innerText = 'Rotate Solar System'
   Object.assign(sliderLabel.style, {
     color: '#ffffff', fontSize: '14px', fontWeight: 'bold', fontFamily: 'sans-serif'
   })
@@ -965,10 +974,31 @@ ecs.registerBehavior((w: any) => {
     pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.3)',
     boxShadow: '0 10px 30px rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', transition: 'opacity 0.5s ease'
   })
-  placementUI.innerHTML = '<b style="font-size:24px;">🌍 AR Globe Ready</b><br/><br/><span style="font-size:16px; color:#ddd;">Slowly look around your room to scan it.<br/><br/>Then <b>Tap Anywhere</b> to place the globe.</span>'
+  placementUI.innerHTML = '<b style="font-size:24px;">🌍 AR Globe Ready</b><br/><br/><span style="font-size:16px; color:#ddd;">Slowly look around your room to scan it.<br/><br/>Line up the glowing ring, then <b>Tap Anywhere</b> to place the globe.</span>'
   document.body.appendChild(placementUI)
 
   let isPlaced = false
+  
+  // AR Placement Reticle (Shadow Ring)
+  const reticleGeom = new T.RingGeometry(0.4, 0.5, 32)
+  const reticleMat = new T.MeshBasicMaterial({ color: 0xffffff, side: T.DoubleSide, transparent: true, opacity: 0.8 })
+  const reticle = new T.Mesh(reticleGeom, reticleMat)
+  reticle.rotation.x = Math.PI / 2
+  w.three.scene.add(reticle)
+  
+  // Animation loop to keep reticle 1.5m in front of camera
+  const updateReticle = () => {
+    if (isPlaced) {
+      reticle.visible = false
+      return
+    }
+    const dir = new T.Vector3(0, 0, -1)
+    dir.applyQuaternion(cam.quaternion)
+    reticle.position.copy(cam.position).add(dir.multiplyScalar(1.5))
+    reticle.position.y -= 0.2
+    requestAnimationFrame(updateReticle)
+  }
+  updateReticle()
 
   const placeGlobe = () => {
     isPlaced = true
@@ -1028,6 +1058,7 @@ ecs.registerBehavior((w: any) => {
       // Rotate whichever planet is selected, or the Earth if nothing/Earth is selected
       const targetToSpin = (isSolarSystem && selectedPlanet && selectedPlanet !== globeGroup) ? selectedPlanet : globeGroup
       targetToSpin.rotateY(dx * 0.005)
+      targetToSpin.rotateX(dy * 0.005)
       
       if (!isSolarSystem) {
         // Pitch the entire map group up/down
@@ -1299,6 +1330,7 @@ ecs.registerBehavior((w: any) => {
       
       const targetToSpin = (isSolarSystem && selectedPlanet && selectedPlanet !== globeGroup) ? selectedPlanet : globeGroup
       targetToSpin.rotateY(dx * 0.005)
+      targetToSpin.rotateX(dy * 0.005)
       
       if (!isSolarSystem) {
         const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)

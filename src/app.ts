@@ -513,7 +513,22 @@ function buildMap(scene: any) {
   solarBtn.addEventListener('click', (e) => {
     e.preventDefault()
     isSolarSystem = !isSolarSystem
-    solarSystemGroup.visible = isSolarSystem
+    
+    // Update reset button text dynamically
+    const resetBtn = document.getElementById('reset-btn')
+    if (resetBtn) resetBtn.innerText = isSolarSystem ? '↺ Reset Orbit' : '↺ Re-Place Globe'
+    
+    if (solarSystemGroup) {
+      solarSystemGroup.visible = isSolarSystem
+      const isDesktopEnv = !(/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && navigator.maxTouchPoints <= 1
+      if (isSolarSystem && !isDesktopEnv) {
+        // Bring planets closer together on mobile devices
+        solarSystemGroup.scale.set(0.5, 0.5, 0.5)
+      } else {
+        solarSystemGroup.scale.set(1, 1, 1)
+      }
+    }
+
     solarBtn.innerText = isSolarSystem ? '🌌 Solar System: ON' : '🌌 Solar System: OFF'
     solarBtn.style.backgroundColor = isSolarSystem ? 'rgba(80, 20, 150, 0.8)' : 'rgba(20, 20, 20, 0.6)'
     
@@ -600,7 +615,7 @@ function buildMap(scene: any) {
   // ── UI Overlay for Reset View Button ──
   const resetBtn = document.createElement('button')
   resetBtn.id = 'reset-btn'
-  resetBtn.innerText = '↺ Reset View'
+  resetBtn.innerText = '↺ Re-Place Globe'
   Object.assign(resetBtn.style, {
     width: '220px', padding: '12px 20px', fontSize: '16px', fontWeight: 'bold', fontFamily: 'sans-serif',
     color: '#ffffff', backgroundColor: 'rgba(200, 50, 50, 0.8)',
@@ -629,14 +644,9 @@ function buildMap(scene: any) {
       targetResetRotationX = -1.4
       globeGroup.rotation.set(0, -Math.PI / 2, -23.5 * (Math.PI / 180))
       
-      // Go back to Placement Mode!
-      const isDesktopEnv = !(/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && navigator.maxTouchPoints <= 1
-      if (!isDesktopEnv) {
-        isPlaced = false
-        const pUI = document.getElementById('camera-loading-ui')?.nextElementSibling as HTMLElement
-        if (pUI) pUI.style.display = 'flex'
-        reticle.visible = true
-        if (typeof reticleLine !== 'undefined') reticleLine.visible = true
+      // Go back to Placement Mode using global callback to avoid TS compiler scope errors
+      if ((window as any).resetToPlacementMode) {
+        (window as any).resetToPlacementMode()
       }
     }
   })
@@ -1124,10 +1134,11 @@ ecs.registerBehavior((w: any) => {
   scaleWrapper.appendChild(scaleSlider)
   
   const placeBtn = document.createElement('button')
-  placeBtn.innerText = '✅ PLACE GLOBE'
+  placeBtn.innerText = 'WAITING FOR SURFACE...'
+  ;(placeBtn as any).disabled = true
   Object.assign(placeBtn.style, {
     padding: '10px 20px', fontSize: '16px', fontWeight: 'bold', color: 'white',
-    backgroundColor: '#4CAF50', border: 'none', borderRadius: '8px', cursor: 'pointer'
+    backgroundColor: '#888888', border: 'none', borderRadius: '8px', cursor: 'pointer'
   })
 
   placementUI.appendChild(instructionTxt)
@@ -1141,6 +1152,16 @@ ecs.registerBehavior((w: any) => {
 
   let isPlaced = false
   let surfaceFound = false
+  
+  ;(window as any).resetToPlacementMode = () => {
+    const isDesktopEnv = !(/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && navigator.maxTouchPoints <= 1
+    if (!isDesktopEnv) {
+      isPlaced = false
+      placementUI.style.display = 'flex'
+      reticle.visible = true
+      reticleLine.visible = true
+    }
+  }
   
   // AR Surface Reticle (Changed to a flat cylinder/puck to guarantee correct Y-up orientation)
   const reticleGeom = new T.CylinderGeometry(0.5, 0.5, 0.05, 32)
@@ -1218,6 +1239,12 @@ ecs.registerBehavior((w: any) => {
     // Always keep reticle visible during placement!
     reticle.visible = true
     reticleLine.visible = true
+
+    if (hasFoundSurfaceEver && (placeBtn as any).disabled) {
+      ;(placeBtn as any).disabled = false
+      placeBtn.innerText = '✅ PLACE GLOBE'
+      placeBtn.style.backgroundColor = '#4CAF50'
+    }
 
     // Show the placement UI now that AR is definitely ticking
     if (!isDesktop && placementUI.style.display === 'none') {
@@ -1514,8 +1541,8 @@ ecs.registerBehavior((w: any) => {
       if (touchStartDist > 0) {
         if (isSolarSystem && selectedPlanet) {
           let s = touchStartPlanetScale * (dist / touchStartDist)
-          const maxScale = (selectedPlanet.userData && selectedPlanet.userData.name === 'Sun') ? 20.0 : 5.0
-          s = Math.max(0.2, Math.min(s, maxScale))
+          const maxScale = (selectedPlanet.userData && selectedPlanet.userData.name === 'Sun') ? 10.0 : 5.0
+          s = Math.max(0.5, Math.min(s, maxScale))
           selectedPlanet.scale.set(s, s, s)
         } else {
           let s = touchStartScale * (dist / touchStartDist)

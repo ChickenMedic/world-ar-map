@@ -614,16 +614,31 @@ function buildMap(scene: any) {
     e.preventDefault()
     focusOnPlanet(globeGroup)
     selectedPlanet = globeGroup
+    
     if (isSolarSystem) {
-      const slider = document.getElementById('solar-orbit-slider') as HTMLInputElement
-      if (slider) {
-        slider.value = '0'
-        solarSystemGroup.rotation.y = 0
-      }
+      const orbitSlider = document.getElementById('solar-orbit-slider') as HTMLInputElement
+      if (orbitSlider) orbitSlider.value = '0'
+      const tiltSlider = document.getElementById('solar-tilt-slider') as HTMLInputElement
+      const isDesktopEnv = !(/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && navigator.maxTouchPoints <= 1
+      if (tiltSlider) tiltSlider.value = isDesktopEnv ? '-30' : '0'
+      
+      solarSystemGroup.rotation.y = 0
+      mapGroup.rotation.x = isDesktopEnv ? -Math.PI / 6 : 0
+      globeGroup.rotation.set(0, -Math.PI / 2, -23.5 * (Math.PI / 180))
     } else {
       targetResetRotationX = -1.4
+      globeGroup.rotation.set(0, -Math.PI / 2, -23.5 * (Math.PI / 180))
+      
+      // Go back to Placement Mode!
+      const isDesktopEnv = !(/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && navigator.maxTouchPoints <= 1
+      if (!isDesktopEnv) {
+        isPlaced = false
+        const pUI = document.getElementById('camera-loading-ui')?.nextElementSibling as HTMLElement
+        if (pUI) pUI.style.display = 'flex'
+        reticle.visible = true
+        if (typeof reticleLine !== 'undefined') reticleLine.visible = true
+      }
     }
-    globeGroup.rotation.set(0, -Math.PI / 2, -23.5 * (Math.PI / 180))
   })
 
   if (ballMesh) ballMesh.visible = false
@@ -1572,12 +1587,12 @@ ecs.registerBehavior((w: any) => {
       if (!isSolarSystem && targetToSpin === globeGroup) {
         targetToSpin.rotateY(dx * 0.005)
         const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+        mapGroup.rotateOnWorldAxis(rightAxis, dy * 0.005) // Positive dy moves front face down, tracking finger perfectly
       } else {
         const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
         const upAxis = new T.Vector3(0, 1, 0).applyQuaternion(cam.quaternion)
         targetToSpin.rotateOnWorldAxis(upAxis, dx * 0.005)
-        targetToSpin.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+        targetToSpin.rotateOnWorldAxis(rightAxis, dy * 0.005)
       }
 
       lastTouchX = e.touches[0].clientX
@@ -1671,6 +1686,37 @@ ecs.registerBehavior((w: any) => {
               }
               hidePopup()
             }
+          }
+        } else if (isSolarSystem) {
+          // Screen-space fallback for tiny planets (like Pluto) that are hard to tap precisely
+          let closestPlanet = null
+          let closestDist = Infinity
+          
+          const traverseForPlanets = (obj: any) => {
+            if (obj.userData && obj.userData.isPlanet) {
+              const worldPos = new T.Vector3()
+              obj.getWorldPosition(worldPos)
+              worldPos.project(currentCam)
+              
+              const screenX = (worldPos.x + 1) / 2 * window.innerWidth
+              const screenY = -(worldPos.y - 1) / 2 * window.innerHeight
+              const dist = Math.sqrt(Math.pow(screenX - touchDownX, 2) + Math.pow(screenY - touchDownY, 2))
+              
+              if (dist < 40 && dist < closestDist) { // 40 pixel generous radius
+                closestDist = dist
+                closestPlanet = obj
+              }
+            }
+            if (obj.children) obj.children.forEach(traverseForPlanets)
+          }
+          traverseForPlanets(solarSystemGroup)
+          
+          if (closestPlanet) {
+            selectedPlanet = closestPlanet
+            focusOnPlanet(closestPlanet)
+            showPopup(closestPlanet.userData.name, true)
+          } else {
+            hidePopup()
           }
         } else {
           if (!isSolarSystem) {

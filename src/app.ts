@@ -1190,6 +1190,7 @@ ecs.registerBehavior((w: any) => {
 
   // Animation loop to perform hit test and place reticle + mapGroup
   let hasFoundSurfaceEver = false
+  let placementReadyTime = 0
   
   const updatePlacement = () => {
     if (isPlaced) {
@@ -1215,7 +1216,10 @@ ecs.registerBehavior((w: any) => {
           reticle.position.lerp(targetPos, 0.1)
           reticle.quaternion.slerp(targetQuat, 0.1) // 8th Wall natively aligns +Y to the surface normal!
           hitSuccess = true
-          hasFoundSurfaceEver = true
+          if (!hasFoundSurfaceEver) {
+            hasFoundSurfaceEver = true
+            placementReadyTime = Date.now() + 1500 // 1.5 second buffer
+          }
         }
       } catch (e) {}
     }
@@ -1242,7 +1246,7 @@ ecs.registerBehavior((w: any) => {
     reticle.visible = true
     reticleLine.visible = true
 
-    if (hasFoundSurfaceEver && (placeBtn as any).disabled) {
+    if (hasFoundSurfaceEver && Date.now() > placementReadyTime && (placeBtn as any).disabled) {
       ;(placeBtn as any).disabled = false
       placeBtn.innerText = '✅ PLACE GLOBE'
       placeBtn.style.backgroundColor = '#4CAF50'
@@ -1318,13 +1322,13 @@ ecs.registerBehavior((w: any) => {
         // Normal Globe Mode: Preserve Earth's geographic tilt
         targetToSpin.rotateY(dx * 0.005)
         const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-        mapGroup.rotateOnWorldAxis(rightAxis, dy * 0.005) // Tracking pointer directly
+        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
       } else {
         // Solar System Mode: Free trackball for ALL planets (including Earth!)
         const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
         const upAxis = new T.Vector3(0, 1, 0).applyQuaternion(cam.quaternion)
         targetToSpin.rotateOnWorldAxis(upAxis, dx * 0.005)
-        targetToSpin.rotateOnWorldAxis(rightAxis, dy * 0.005)
+        targetToSpin.rotateOnWorldAxis(rightAxis, -dy * 0.005)
       }
     } else if (isPanning) {
       // Right Click translates the globe
@@ -1625,12 +1629,12 @@ ecs.registerBehavior((w: any) => {
       if (!isSolarSystem && targetToSpin === globeGroup) {
         targetToSpin.rotateY(dx * 0.005)
         const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-        mapGroup.rotateOnWorldAxis(rightAxis, dy * 0.005) // Positive dy moves front face down, tracking finger perfectly
+        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
       } else {
         const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
         const upAxis = new T.Vector3(0, 1, 0).applyQuaternion(cam.quaternion)
         targetToSpin.rotateOnWorldAxis(upAxis, dx * 0.005)
-        targetToSpin.rotateOnWorldAxis(rightAxis, dy * 0.005)
+        targetToSpin.rotateOnWorldAxis(rightAxis, -dy * 0.005)
       }
 
       lastTouchX = e.touches[0].clientX

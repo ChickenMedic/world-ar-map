@@ -516,7 +516,7 @@ function buildMap(scene: any) {
     
     // Update reset button text dynamically
     const resetBtn = document.getElementById('reset-btn')
-    if (resetBtn) resetBtn.innerText = isSolarSystem ? '↺ Reset Orbit' : '↺ Re-Place Globe'
+    if (resetBtn) resetBtn.innerText = isSolarSystem ? '↺ Return to Earth' : '↺ Re-Place Globe'
     
     if (solarSystemGroup) {
       solarSystemGroup.visible = isSolarSystem
@@ -1120,7 +1120,7 @@ ecs.registerBehavior((w: any) => {
   const scaleSlider = document.createElement('input')
   scaleSlider.type = 'range'
   scaleSlider.min = '0.2'
-  scaleSlider.max = '3.0'
+  scaleSlider.max = '1.8' // 1.0 is exactly in the middle!
   scaleSlider.step = '0.1'
   scaleSlider.value = '1.0'
   scaleSlider.style.width = '200px'
@@ -1155,11 +1155,13 @@ ecs.registerBehavior((w: any) => {
   
   ;(window as any).resetToPlacementMode = () => {
     const isDesktopEnv = !(/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && navigator.maxTouchPoints <= 1
-    if (!isDesktopEnv) {
+    if (!isDesktopEnv && isPlaced) {
       isPlaced = false
       placementUI.style.display = 'flex'
+      placementUI.style.opacity = '1'
       reticle.visible = true
       reticleLine.visible = true
+      updatePlacement() // Restart the animation loop!
     }
   }
   
@@ -1269,9 +1271,10 @@ ecs.registerBehavior((w: any) => {
 
   placeBtn.addEventListener('click', (e) => {
     e.preventDefault()
+    if (!hasFoundSurfaceEver && !isDesktop) return
     isPlaced = true
     placementUI.style.opacity = '0'
-    setTimeout(() => placementUI.remove(), 500)
+    setTimeout(() => { if (isPlaced) placementUI.style.display = 'none' }, 500)
     mapGroup.userData.originPos = mapGroup.position.clone()
   })
 
@@ -1315,13 +1318,13 @@ ecs.registerBehavior((w: any) => {
         // Normal Globe Mode: Preserve Earth's geographic tilt
         targetToSpin.rotateY(dx * 0.005)
         const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
-        mapGroup.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+        mapGroup.rotateOnWorldAxis(rightAxis, dy * 0.005) // Tracking pointer directly
       } else {
         // Solar System Mode: Free trackball for ALL planets (including Earth!)
         const rightAxis = new T.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
         const upAxis = new T.Vector3(0, 1, 0).applyQuaternion(cam.quaternion)
         targetToSpin.rotateOnWorldAxis(upAxis, dx * 0.005)
-        targetToSpin.rotateOnWorldAxis(rightAxis, -dy * 0.005)
+        targetToSpin.rotateOnWorldAxis(rightAxis, dy * 0.005)
       }
     } else if (isPanning) {
       // Right Click translates the globe
@@ -1482,9 +1485,17 @@ ecs.registerBehavior((w: any) => {
 
   const wheelListener = (e: WheelEvent) => {
     if (isUI(e as any)) return
-    let s = mapGroup.scale.x - e.deltaY * 0.001
-    s = Math.max(0.2, Math.min(s, 5.0))
-    applyZoomAtScreenPoint(s, e.clientX, e.clientY)
+    
+    if (isSolarSystem && selectedPlanet) {
+      let s = selectedPlanet.scale.x - e.deltaY * 0.005
+      const maxScale = (selectedPlanet.userData && selectedPlanet.userData.name === 'Sun') ? 10.0 : 5.0
+      s = Math.max(0.5, Math.min(s, maxScale))
+      selectedPlanet.scale.set(s, s, s)
+    } else {
+      let s = mapGroup.scale.x - e.deltaY * 0.001
+      s = Math.max(0.2, Math.min(s, 5.0))
+      applyZoomAtScreenPoint(s, e.clientX, e.clientY)
+    }
   }
 
   window.addEventListener('contextmenu', e => e.preventDefault())
